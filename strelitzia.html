@@ -1,0 +1,1593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Strelitzia | Secure Marketplace & Comms</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================
+   STRELITZIA — POLISHED UI LAYER
+   All Supabase logic untouched. Pure visual + perf pass.
+   ===================================================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-core:#000000; --bg-panel:#0a0a0c; --bg-elevated:#121216; --bg-hover:#1c1c23;
+  --line:#22222a; --line-bright:#33333f;
+  --teal:#00ffcc; /* accent color (user-customizable) */
+  --teal-dim:#00b38f;
+  --amber:#ffb800; --green:#00e676; --red:#ff3b5c; --purple:#b388ff; --blue:#3b82f6;
+  --fg:#e2e2e8; --fg-muted:#8b8b9f; --fg-dark:#555566;
+  --font-ui:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',monospace;
+  /* derived accent helpers (auto-shift with the accent) */
+  --acc-08:color-mix(in srgb, var(--teal) 8%, transparent);
+  --acc-15:color-mix(in srgb, var(--teal) 15%, transparent);
+  --acc-25:color-mix(in srgb, var(--teal) 25%, transparent);
+  --acc-40:color-mix(in srgb, var(--teal) 40%, transparent);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --shadow-1:0 10px 30px rgba(0,0,0,.45);
+  --shadow-2:0 20px 60px rgba(0,0,0,.7);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-ui); background:var(--bg-core); color:var(--fg);
+  height:100vh; height:100dvh; overflow:hidden; -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% -10%, var(--acc-08), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 100% 100%, color-mix(in srgb, var(--purple) 4%, transparent), transparent 60%);
+}
+::selection{background:var(--teal); color:#000}
+
+/* ---------- Buttons: premium press + sheen ---------- */
+button{
+  font:inherit;cursor:pointer;border:none;border-radius:8px;padding:9px 18px;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--teal) 92%, #fff 8%), var(--teal));
+  color:#000;font-weight:700;transition:transform .15s var(--ease), box-shadow .25s var(--ease), filter .2s; letter-spacing:.3px;
+  position:relative; overflow:hidden;
+}
+button::after{
+  content:"";position:absolute;top:0;left:-80%;width:50%;height:100%;
+  background:linear-gradient(105deg, transparent, rgba(255,255,255,.45), transparent);
+  transform:skewX(-20deg); transition:left .45s var(--ease); pointer-events:none;
+}
+button:hover{filter:brightness(1.08); box-shadow:0 0 18px var(--acc-40), 0 4px 14px rgba(0,0,0,.4);}
+button:hover::after{left:130%}
+button:active{transform:scale(.97)}
+button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:none}
+button.ghost{background:var(--bg-elevated);color:var(--fg);border:1px solid var(--line);}
+button.ghost:hover{background:var(--bg-hover);border-color:var(--line-bright);box-shadow:0 2px 10px rgba(0,0,0,.35)}
+button.danger{background:color-mix(in srgb, var(--red) 15%, transparent);color:var(--red);border:1px solid var(--red)}
+button.danger:hover{background:var(--red);color:#fff;box-shadow:0 0 16px color-mix(in srgb, var(--red) 40%, transparent)}
+button.sm{padding:5px 10px;font-size:12px;border-radius:6px}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+input,textarea,select{
+  font:inherit; background:var(--bg-core); border:1px solid var(--line); border-radius:8px;
+  padding:10px 14px; color:var(--fg); width:100%; outline:none;
+  transition:border-color .2s, box-shadow .25s, background .2s;
+}
+input:hover,textarea:hover,select:hover{border-color:var(--line-bright)}
+input:focus,textarea:focus,select:focus{
+  border-color:var(--teal);
+  box-shadow:0 0 0 3px var(--acc-08), 0 0 14px var(--acc-15);
+  background:#050507;
+}
+input::placeholder,textarea::placeholder{color:var(--fg-dark)}
+textarea{resize:none}
+.hidden{display:none!important;}
+.mono{font-family:var(--font-mono); font-size:0.9em;}
+.empty{color:var(--fg-dark);font-size:13px;padding:24px;text-align:center;opacity:.8}
+
+/* ---------- Custom scrollbars (cyber thin + glow on hover) ---------- */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#23232e;border-radius:3px;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:var(--teal-dim);box-shadow:0 0 8px var(--acc-40)}
+*{scrollbar-width:thin;scrollbar-color:#23232e transparent}
+
+/* ---------- Ambient animated background pulse ---------- */
+@keyframes ambientPulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulseDot{0%,100%{box-shadow:0 0 0 0 var(--acc-25)}70%{box-shadow:0 0 0 6px transparent}}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes toastOut{to{opacity:0;transform:translate(-50%,8px)}}
+
+/* ===================================================== LAYOUT */
+#shell{display:grid;grid-template-columns:72px 260px 1fr 280px;height:100vh;height:100dvh;}
+
+/* ---------- Icon rail ---------- */
+#rail{background:var(--bg-core);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:8px;z-index:40;overflow-y:auto;overflow-x:hidden}
+.rail-btn{
+  width:48px;height:48px;border-radius:14px;background:var(--bg-elevated);color:var(--fg-muted);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;
+  border:1px solid transparent;transition:all .25s var(--ease);flex-shrink:0;
+}
+.rail-btn:hover{background:var(--bg-hover);color:var(--teal);border-color:var(--line-bright);transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.5)}
+.rail-btn.active{background:var(--acc-08);color:var(--teal);border-color:color-mix(in srgb, var(--teal) 30%, transparent);box-shadow:0 0 18px var(--acc-15), inset 0 0 12px var(--acc-08)}
+.rail-btn.active::before{
+  content:"";position:absolute;left:-13px;top:50%;transform:translateY(-50%);
+  width:4px;height:26px;background:var(--teal);border-radius:0 4px 4px 0;
+  box-shadow:2px 0 12px var(--teal);
+}
+.rail-btn svg{width:22px;height:22px;transition:transform .25s var(--ease)}
+.rail-btn:hover svg{transform:scale(1.08)}
+.rail-btn.brand{width:52px;height:52px;background:transparent;border:none}
+.rail-btn.brand svg{width:40px;height:40px;filter:drop-shadow(0 0 8px var(--acc-40))}
+.rail-btn.brand svg circle{animation:spin 24s linear infinite;transform-origin:60px 60px}
+.rail-btn.brand:hover{transform:scale(1.06);box-shadow:none}
+.rail-sep{width:32px;height:1px;background:var(--line);margin:4px 0;flex-shrink:0}
+.rail-spacer{flex:1}
+
+/* ---------- Channel sidebar ---------- */
+#channels{background:var(--bg-panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;z-index:35}
+#channels-head{
+  padding:16px 20px;border-bottom:1px solid var(--line);font-weight:800;font-size:14px;letter-spacing:.5px;
+  display:flex;align-items:center;gap:10px;text-transform:uppercase;
+  background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+}
+.rt-dot{width:8px;height:8px;border-radius:50%;background:var(--fg-dark);transition:.3s}
+.rt-dot.on{background:var(--green);box-shadow:0 0 10px var(--green);animation:pulseDot 2.4s infinite}
+#channels-body{flex:1;overflow-y:auto;padding:12px;overscroll-behavior:contain}
+.chan-sec{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--fg-dark);font-weight:800;padding:16px 10px 6px}
+.chan-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--fg-muted);
+  cursor:pointer;font-size:14px;font-weight:500;transition:all .18s var(--ease);border:1px solid transparent;
+  position:relative;
+}
+.chan-item::before{
+  content:"";position:absolute;left:0;top:50%;transform:translateY(-50%) scaleY(0);
+  width:3px;height:60%;background:var(--teal);border-radius:0 3px 3px 0;transition:transform .2s var(--ease);
+}
+.chan-item:hover{background:var(--bg-elevated);color:var(--fg);transform:translateX(2px)}
+.chan-item.active{background:var(--bg-elevated);color:var(--fg);border-color:var(--line)}
+.chan-item.active::before{transform:translateY(-50%) scaleY(1);box-shadow:2px 0 8px var(--acc-40)}
+.chan-item .hash{color:var(--fg-dark);font-weight:700;font-family:var(--font-mono)}
+.chan-item.active .hash{color:var(--teal)}
+.chan-item .tag{margin-left:auto;font-size:10px;padding:2px 6px;border-radius:4px;background:var(--bg-core);color:var(--fg-muted);font-weight:700;border:1px solid var(--line)}
+.chan-item .tag.lock{color:var(--amber);border-color:color-mix(in srgb, var(--amber) 30%, transparent)}
+
+/* ---------- Stage ---------- */
+#stage{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-core);position:relative;min-width:0}
+#stage-head{
+  padding:16px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;
+  background:color-mix(in srgb, var(--bg-core) 75%, transparent);backdrop-filter:blur(12px);z-index:5;
+  min-height:58px;
+}
+#stage-head h2{font-size:18px;font-weight:800;letter-spacing:.4px}
+#stage-head .topic{font-size:13px;color:var(--fg-muted);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#stage-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;overscroll-behavior:contain}
+#stage-body > *{animation:fadeIn .25s var(--ease)}
+
+/* ---------- Members sidebar ---------- */
+#members{width:280px;background:var(--bg-panel);border-left:1px solid var(--line);overflow-y:auto;padding:16px 12px}
+.m-sec{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--fg-dark);font-weight:800;padding:12px 10px 6px}
+.member{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;font-size:14px;cursor:pointer;transition:all .18s var(--ease)}
+.member:hover{background:var(--bg-elevated);transform:translateX(2px)}
+.av{
+  width:38px;height:38px;border-radius:50%;background:linear-gradient(145deg,#16161c,#0c0c10);
+  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:15px;color:var(--fg);flex-shrink:0;
+  transition:all .2s var(--ease);
+}
+.member:hover .av{border-color:var(--line-bright);box-shadow:0 0 10px rgba(0,0,0,.5)}
+
+/* ---------- Badges & inline decor ---------- */
+.badge-row{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+.icon-badge{width:14px;height:14px;object-fit:contain;display:inline-block;vertical-align:middle}
+.official-tag{width:16px;height:16px;display:inline-flex;filter:drop-shadow(0 0 5px var(--acc-40))}
+.official-tag svg{width:100%;height:100%}
+.forged-badge-sep{width:1px;height:14px;background:var(--line-bright);margin:0 2px}
+.forged-badge{width:24px;height:24px;object-fit:contain;display:inline-block;vertical-align:middle;filter:drop-shadow(0 0 6px var(--acc-25));transition:transform .2s var(--ease)}
+.forged-badge:hover{transform:scale(1.2) rotate(-4deg)}
+
+/* ---------- Chat messages ---------- */
+.msgs{padding:20px 24px;display:flex;flex-direction:column;gap:8px}
+.msg{display:flex;gap:16px;padding:6px 8px;border-radius:10px;position:relative;animation:msgIn .28s var(--ease) both;transition:background .18s}
+.msg:hover{background:rgba(255,255,255,.025)}
+.msg:hover .av{border-color:var(--line-bright)}
+.msg .body{min-width:0;flex:1}
+.msg .head{display:flex;align-items:center;gap:10px;margin-bottom:2px;flex-wrap:wrap}
+.msg .author{font-weight:700;font-size:14px;cursor:pointer;color:var(--fg);transition:color .15s}
+.msg .author:hover{color:var(--teal)}
+.msg .author.official{color:var(--teal);text-shadow:0 0 12px var(--acc-40)}
+.msg .time{font-size:11px;color:var(--fg-dark);font-family:var(--font-mono)}
+.msg .text{font-size:14.5px;line-height:1.55;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;color:#c9c9d4}
+.msg .msg-img{max-width:320px;max-height:320px;border-radius:10px;margin-top:8px;border:1px solid var(--line);cursor:zoom-in;object-fit:contain;transition:transform .25s var(--ease), box-shadow .25s}
+.msg .msg-img:hover{transform:scale(1.02);box-shadow:var(--shadow-1)}
+
+/* ---------- Composer ---------- */
+.composer{padding:16px 24px;background:color-mix(in srgb, var(--bg-core) 85%, transparent);border-top:1px solid var(--line)}
+.composer-wrap{display:flex;flex-direction:column;background:var(--bg-elevated);border:1px solid var(--line);border-radius:12px;transition:all .25s var(--ease)}
+.composer-wrap:focus-within{border-color:var(--teal-dim);box-shadow:0 0 0 3px var(--acc-08), 0 0 24px var(--acc-15)}
+.composer-wrap textarea{background:transparent;border:none;padding:14px;max-height:200px;min-height:24px;font-size:14.5px;color:var(--fg)}
+.composer-wrap textarea:focus{box-shadow:none;border:none;background:transparent}
+.composer-tools{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--bg-panel);border-top:1px solid var(--line);border-radius:0 0 12px 12px}
+.composer-tools .left{display:flex;gap:12px;align-items:center;min-width:0}
+
+/* ---------- Market listings ---------- */
+.market-view{padding:32px;overflow-y:auto;flex:1}
+.market-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+.market-header h1{font-size:28px;font-weight:800;display:flex;align-items:center;gap:16px;letter-spacing:-.5px}
+.market-header .desc{color:var(--fg-muted);font-size:14px;margin-top:6px;max-width:600px;line-height:1.5}
+.listing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.listing-card{
+  --card-line:var(--line);
+  background:linear-gradient(var(--bg-panel),var(--bg-panel)) padding-box,
+             linear-gradient(160deg, transparent 40%, var(--acc-08)) border-box;
+  border:1px solid transparent;
+  border-radius:14px;overflow:hidden;display:flex;flex-direction:column;
+  transition:all .28s var(--ease);position:relative;
+}
+.listing-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.5), 0 0 20px var(--acc-08)}
+.listing-card:hover .listing-img{transform:scale(1.05)}
+.listing-img{width:100%;height:180px;background:var(--bg-core);object-fit:cover;border-bottom:1px solid var(--line);transition:transform .4s var(--ease)}
+.listing-info{padding:16px;display:flex;flex-direction:column;flex:1}
+.listing-type{position:absolute;top:12px;left:12px;background:color-mix(in srgb, var(--bg-core) 70%, transparent);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;border:1px solid var(--line);backdrop-filter:blur(6px);z-index:2}
+.listing-type.wts{color:var(--green);border-color:color-mix(in srgb, var(--green) 30%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--green) 12%, transparent)}
+.listing-type.wtb{color:var(--amber);border-color:color-mix(in srgb, var(--amber) 30%, transparent);box-shadow:0 0 10px color-mix(in srgb, var(--amber) 12%, transparent)}
+.listing-title{font-weight:800;font-size:16px;margin-bottom:6px}
+.listing-price{color:var(--teal);font-weight:800;font-size:18px;font-family:var(--font-mono);margin-bottom:12px;text-shadow:0 0 14px var(--acc-25)}
+.listing-desc{font-size:13px;color:var(--fg-muted);flex:1;margin-bottom:16px;word-wrap:break-word;line-height:1.45}
+.listing-seller{font-size:12px;color:var(--fg-dark);display:flex;align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+
+/* ---------- Modals: glassmorphism ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(2,2,4,.65);backdrop-filter:blur(10px) saturate(.85);
+  z-index:1000;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s var(--ease);
+}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-card{
+  background:color-mix(in srgb, var(--bg-panel) 82%, transparent);backdrop-filter:blur(24px);
+  border:1px solid color-mix(in srgb, var(--line-bright) 80%, transparent);border-radius:16px;
+  width:min(540px,92vw);max-height:92vh;max-height:92dvh;overflow-y:auto;display:flex;flex-direction:column;
+  transform:scale(.94) translateY(10px);opacity:0;transition:all .28s var(--ease);
+  position:relative;box-shadow:var(--shadow-2), 0 0 60px var(--acc-08);
+}
+.modal-card::before{content:"";position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg, transparent, var(--teal), transparent);opacity:.6;pointer-events:none}
+.modal-overlay.active .modal-card{transform:scale(1) translateY(0);opacity:1}
+
+/* ---------- Profile modal ---------- */
+.modal-banner{width:100%;height:140px;background:linear-gradient(135deg,var(--bg-elevated),var(--bg-core));border-radius:16px 16px 0 0;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.modal-banner::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 120%, var(--acc-15), transparent 55%);pointer-events:none}
+.prof-av-wrap{position:absolute;top:-40px;left:24px;z-index:3}
+.prof-av{width:80px;height:80px;border-radius:50%;background:var(--bg-elevated);border:4px solid var(--bg-panel);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;z-index:2;position:relative;transition:box-shadow .3s}
+.prof-header{margin-top:48px;margin-bottom:12px;padding:0 24px}
+.prof-header h2{font-size:22px;font-weight:800;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prof-header p{font-size:13px;color:var(--fg-muted);font-family:var(--font-mono);margin-top:4px}
+.profile-tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);padding:0 24px;margin-bottom:16px}
+.ptab{padding:10px 16px;font-size:13px;font-weight:700;color:var(--fg-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s var(--ease)}
+.ptab:hover{color:var(--fg)}
+.ptab.active{color:var(--teal);border-bottom-color:var(--teal);text-shadow:0 0 10px var(--acc-40)}
+.profile-content{padding:0 24px 24px;animation:riseIn .25s var(--ease)}
+
+/* ---------- Collection grid ---------- */
+.collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px}
+.badge-card{background:var(--bg-core);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;transition:all .25s var(--ease);position:relative;overflow:hidden}
+.badge-card::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 0%, var(--acc-08), transparent 60%);opacity:0;transition:opacity .3s;pointer-events:none}
+.badge-card:hover{border-color:var(--line-bright);transform:translateY(-4px);box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.badge-card:hover::after{opacity:1}
+.badge-card.equipped{border-color:var(--teal);box-shadow:0 0 18px var(--acc-15)}
+.badge-card.equipped::before{content:'EQUIPPED';position:absolute;top:0;left:0;right:0;background:var(--teal);color:#000;font-size:9px;font-weight:800;text-align:center;padding:2px 0;letter-spacing:1px;box-shadow:0 0 12px var(--acc-40)}
+.badge-card img{width:56px;height:56px;object-fit:contain;margin-top:10px;filter:drop-shadow(0 0 8px rgba(0,0,0,.5));transition:transform .25s var(--ease)}
+.badge-card:hover img{transform:scale(1.1) rotate(3deg)}
+.badge-card .b-name{font-size:12px;font-weight:700;text-align:center;color:var(--fg)}
+.badge-card .b-rarity{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.rarity-common{color:#8b8b9f}.rarity-rare{color:#3b82f6}.rarity-epic{color:#b388ff}.rarity-legendary{color:#ffb800}
+
+/* ---------- Settings modal ---------- */
+.settings-modal{width:min(900px,95vw);height:min(680px,88vh);height:min(680px,88dvh);display:flex;flex-direction:row;padding:0;overflow:hidden;border-radius:16px}
+.settings-sidebar{width:230px;background:color-mix(in srgb, var(--bg-core) 60%, transparent);border-right:1px solid var(--line);padding:24px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;flex-shrink:0}
+.settings-sidebar-title{font-size:11px;text-transform:uppercase;font-weight:800;color:var(--fg-dark);letter-spacing:1px;padding:0 12px 8px}
+.settings-nav-btn{padding:10px 12px;border-radius:8px;font-size:14px;font-weight:600;color:var(--fg-muted);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .18s var(--ease)}
+.settings-nav-btn:hover{background:var(--bg-elevated);color:var(--fg);transform:translateX(2px)}
+.settings-nav-btn.active{background:var(--acc-08);color:var(--teal)}
+.settings-nav-btn.active.danger,.settings-nav-btn.danger:hover{background:color-mix(in srgb, var(--red) 15%, transparent);color:var(--red)}
+.settings-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:transparent;min-width:0}
+.settings-header{padding:24px 32px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.settings-header h2{font-size:20px;font-weight:800}
+.settings-content-scroll{flex:1;overflow-y:auto;padding:32px;animation:riseIn .25s var(--ease)}
+.setting-group{margin-bottom:24px}
+.setting-group label{display:block;font-size:12px;text-transform:uppercase;color:var(--fg-muted);font-weight:800;margin-bottom:8px;letter-spacing:.5px}
+.setting-desc{font-size:12px;color:var(--fg-dark);margin-bottom:8px;line-height:1.5}
+.accent-swatch{transition:transform .2s var(--ease), box-shadow .2s !important}
+.accent-swatch:hover{transform:scale(1.15)}
+
+/* ---------- Docs (FAQ / changelog) ---------- */
+.doc-view{padding:40px;max-width:900px;margin:0 auto;line-height:1.6;width:100%}
+.doc-view h1{font-size:32px;font-weight:800;margin-bottom:8px;color:var(--teal);letter-spacing:-1px;text-shadow:0 0 20px var(--acc-25)}
+.doc-view p.sub{color:var(--fg-muted);font-size:15px;margin-bottom:40px}
+.timeline{position:relative;padding-left:24px;border-left:2px solid var(--line);margin-left:8px}
+.timeline-item{position:relative;margin-bottom:40px;animation:riseIn .35s var(--ease) both}
+.timeline-item::before{content:'';position:absolute;left:-31px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--bg-core);border:2px solid var(--teal);box-shadow:0 0 10px var(--acc-40)}
+.timeline-version{font-family:var(--font-mono);font-size:20px;font-weight:800;color:var(--fg);margin-bottom:4px}
+.timeline-date{font-size:12px;color:var(--teal-dim);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
+.timeline-content ul{list-style:none;display:flex;flex-direction:column;gap:8px}
+.timeline-content li{position:relative;padding-left:16px;color:var(--fg-muted);font-size:14px}
+.timeline-content li::before{content:'▹';position:absolute;left:0;color:var(--teal);font-size:12px}
+.timeline-content strong{color:var(--fg)}
+.faq-category{font-size:20px;font-weight:800;margin:40px 0 16px;color:var(--fg);border-bottom:1px solid var(--line);padding-bottom:8px;display:flex;align-items:center;gap:10px}
+.faq-cat-icon{width:24px;height:24px;color:var(--teal);filter:drop-shadow(0 0 6px var(--acc-40))}
+details.faq-item{background:color-mix(in srgb, var(--bg-panel) 70%, transparent);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;transition:all .25s var(--ease)}
+details.faq-item:hover{border-color:var(--line-bright)}
+details.faq-item[open]{border-color:color-mix(in srgb, var(--teal) 25%, transparent);box-shadow:0 4px 24px rgba(0,0,0,.35)}
+details.faq-item summary{padding:16px 20px;font-weight:700;font-size:15px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--fg)}
+details.faq-item summary::-webkit-details-marker{display:none}
+details.faq-item summary::after{content:'+';font-size:20px;color:var(--teal);transition:transform .3s var(--ease);flex-shrink:0}
+details.faq-item[open] summary::after{transform:rotate(45deg)}
+.faq-answer{padding:0 20px 20px;color:var(--fg-muted);font-size:14px;line-height:1.65}
+.faq-answer code{background:var(--bg-elevated);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;color:var(--teal)}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:color-mix(in srgb, var(--bg-elevated) 88%, transparent);backdrop-filter:blur(12px);
+  border:1px solid var(--teal);color:var(--teal);padding:12px 24px;border-radius:10px;
+  font-weight:700;font-size:14px;z-index:9999;box-shadow:0 0 24px var(--acc-25), var(--shadow-1);
+  animation:toastIn .3s var(--ease);max-width:90vw;text-align:center;
+}
+.toast.out{animation:toastOut .3s var(--ease) forwards}
+
+/* ---------- Mobile chrome (hamburger + drawer backdrop) ---------- */
+#mobileBar{display:none}
+#drawerBackdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:30;opacity:0;pointer-events:none;transition:opacity .25s}
+#drawerBackdrop.show{opacity:1;pointer-events:auto}
+
+@media (max-width:1100px){
+  #shell{grid-template-columns:72px 240px 1fr}
+  #members{display:none}
+}
+@media (max-width:820px){
+  #shell{grid-template-columns:100% 1fr}
+  #rail{
+    position:fixed;left:0;right:0;top:0;height:auto;flex-direction:row;padding:8px 12px;
+    border-right:none;border-bottom:1px solid var(--line);
+    background:color-mix(in srgb, var(--bg-core) 88%, transparent);backdrop-filter:blur(14px);
+    overflow-x:auto;overflow-y:hidden;
+  }
+  .rail-btn{width:42px;height:42px}
+  .rail-btn.active::before{left:50%;top:auto;bottom:-9px;transform:translateX(-50%);width:22px;height:3px;border-radius:3px 3px 0 0}
+  .rail-btn.brand{width:44px;height:44px}
+  .rail-btn.brand svg{width:32px;height:32px}
+  .rail-sep{width:1px;height:28px;margin:0 4px}
+  .rail-spacer{flex:0}
+  .shell-rail-pad{padding-top:60px}
+
+  #mobileBar{
+    display:flex;position:fixed;top:64px;left:12px;z-index:32;
+    background:color-mix(in srgb, var(--bg-elevated) 85%, transparent);backdrop-filter:blur(10px);
+    border:1px solid var(--line);border-radius:10px;padding:8px 14px;color:var(--fg);
+    font-weight:700;font-size:13px;cursor:pointer;align-items:center;gap:8px;
+    box-shadow:var(--shadow-1);transition:all .2s var(--ease);
+  }
+  #mobileBar:active{transform:scale(.96)}
+  #mobileBar svg{width:16px;height:16px}
+
+  #channels{
+    position:fixed;top:0;bottom:0;left:0;width:min(300px,85vw);z-index:45;
+    transform:translateX(-105%);transition:transform .32s var(--ease);
+    box-shadow:var(--shadow-2);border-right:1px solid var(--line-bright);
+    padding-top:0;
+  }
+  #channels.open{transform:translateX(0)}
+  #shell{grid-template-columns:1fr;padding-top:60px}
+  #stage{min-height:0}
+  .msgs{padding:16px}
+  .composer{padding:12px}
+  .msg{gap:10px}
+  .msg .av{width:32px;height:32px;font-size:13px}
+  .market-view{padding:20px 16px}
+  .listing-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .listing-img{height:130px}
+  .market-header h1{font-size:22px}
+  #stage-head{padding:14px 16px;gap:10px;flex-wrap:wrap}
+  #stage-head h2{font-size:16px}
+  #stage-head .topic{font-size:11px;white-space:normal}
+  .doc-view{padding:24px 16px}
+  .settings-modal{flex-direction:column;width:min(540px,95vw);height:min(640px,90vh)}
+  .settings-sidebar{width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;border-right:none;border-bottom:1px solid var(--line)}
+  .settings-sidebar-title{display:none}
+  .settings-nav-btn{padding:8px 12px;font-size:13px}
+  .settings-header{padding:16px}
+  .settings-content-scroll{padding:16px}
+  .msg .msg-img{max-width:min(320px,100%)}
+  .collection-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
+}
+@media (max-width:480px){
+  .modal-card{width:96vw}
+  .listing-grid{grid-template-columns:1fr}
+  .prof-av-wrap{left:16px}
+  .prof-header,.profile-tabs,.profile-content{padding-left:16px;padding-right:16px}
+  .modal-banner{height:110px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div id="shell" class="hidden">
+  <nav id="rail"></nav>
+  <aside id="channels">
+    <div id="channels-head"></div>
+    <div id="channels-body"></div>
+  </aside>
+  <main id="stage">
+    <div id="stage-head"></div>
+    <div id="stage-body"></div>
+  </main>
+  <aside id="members"></aside>
+</div>
+
+<button id="mobileBar" onclick="toggleChannels()" title="Toggle channels">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h12"/></svg>
+  <span>Channels</span>
+</button>
+<div id="drawerBackdrop" onclick="toggleChannels(false)"></div>
+
+<div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-card" id="modalContent"></div>
+</div>
+
+<div id="gate" class="modal-overlay active" style="background:var(--bg-core)">
+  <div class="modal-card" style="width:400px; padding:32px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <h1 style="font-size:24px;font-weight:800;letter-spacing:3px;color:var(--teal);text-shadow:0 0 24px var(--acc-40);">STRELITZIA</h1>
+      <p style="color:var(--fg-muted);font-size:13px;margin-top:4px;">Secure P2P Trading & Comms</p>
+    </div>
+    <div id="authForms"></div>
+    <div class="conn pending" id="connBar" style="margin-top:20px;font-size:11px;text-align:center;color:var(--fg-muted);font-family:var(--font-mono);">Connecting to secure node...</div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   STRELITZIA v2.4.1 — UI/UX POLISH BUILD
+   Supabase logic (auth, DB, realtime, storage) is 100% unchanged.
+   Only rendering/event-wiring helpers were optimized.
+   ===================================================================== */
+const SB_URL = "https://rffkdrbjpijlvxrngpwx.supabase.co";
+const SB_KEY = "sb_publishable_nBCwS3A6WLscj7pyV5d-uw_R4M_ggTW";
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+const CFG = { VERSION: "2.4.1", M_PURITY: "market-purity", M_COARSE: "market-coarse", M_LIMITEDS: "market-limiteds" };
+const RANKS = ["guest","registered","member","premium","staff","dev","admin","owner"];
+const L = Object.fromEntries(RANKS.map((r,i)=>[r,i]));
+const RANK_COLOR = { guest:"#8b8b9f", registered:"#8b8b9f", member:"#00e676", premium:"#ffb800", staff:"#3b82f6", dev:"#b388ff", admin:"#ff3b5c", owner:"#00ffcc" };
+const OFFICIAL = new Set(["dev","admin","owner"]);
+
+const LOGO_FLOWER = `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="10 5"/><path d="M60 102 L60 66" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M60 96 C44 92 36 78 40 62 C50 68 56 80 60 94 Z" fill="#2a8a4a"/><path d="M60 96 C76 92 84 78 80 62 C70 68 64 80 60 94 Z" fill="#2a8a4a"/><path d="M60 64 C50 48 36 40 20 36 C34 46 46 58 56 64 Z" fill="#f97316"/><path d="M60 64 C56 44 50 28 40 16 C52 28 60 46 62 64 Z" fill="#f59e0b"/><path d="M60 64 C66 48 74 34 86 26 C78 40 70 54 64 64 Z" fill="#f97316"/></svg>`;
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uuid = () => crypto.randomUUID();
+const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown";
+const nowISO = () => new Date().toISOString();
+const fmtTime = iso => new Date(iso).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+const initial = s => (s||"?")[0].toUpperCase();
+const displayOf = u => u?.display_name || u?.username || "?";
+const rankBadge = r => `<span class="badge-sm" style="background:${RANK_COLOR[r]||"#666"}15;color:${RANK_COLOR[r]||"#999"};border:1px solid ${RANK_COLOR[r]||"#666"}44;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:800;text-transform:uppercase;">${esc(r)}</span>`;
+const isPremium = (u) => u && L[u.rank] >= L.premium;
+const formatCredits = (c) => `<span style="color:var(--teal);font-family:var(--font-mono);font-weight:800;">💰 ${(c||0).toLocaleString()} Cr</span>`;
+
+function getPremiumTier(u) {
+  if (!isPremium(u)) return null;
+  const since = new Date(u.premium_since || u.created_at || Date.now());
+  const days = Math.floor((Date.now() - since.getTime()) / 86400000);
+  if (days < 7) return { tier: 'New', color: '#b0b0b0', icon: '✨' };
+  if (days < 30) return { tier: '1w', color: '#00e676', icon: '🌱' };
+  if (days < 90) return { tier: '1m', color: '#3b82f6', icon: '🔥' };
+  if (days < 180) return { tier: '3m', color: '#ffb800', icon: '⭐' };
+  if (days < 365) return { tier: '6m', color: '#b388ff', icon: '💎' };
+  return { tier: '1y+', color: '#00ffcc', icon: '👑' };
+}
+
+const PHRASE_WORDS = ['apple','banana','cherry','date','elder','fig','grape','honey','iris','jade','kiwi','lemon','mango','nutmeg','olive','peach','quince','rose','sage','tulip','umber','violet','wheat','xenon','yam','zinc','amber','bronze','copper','diamond','emerald','flint','ghost','hazel','indigo','jasper','karma','lunar','magic','navy','ocean','pixel','quartz','raven','solar','tiger','unity','vivid','wizard','xerus','youth','zebra','acorn','blaze','cider','drake','eagle','frost','glide','haven'];
+function generatePhrase(){ return Array.from(crypto.getRandomValues(new Uint32Array(12)), n => PHRASE_WORDS[n % PHRASE_WORDS.length]).join(' '); }
+async function hashPhrase(phrase){ const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(phrase.toLowerCase().trim())); return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''); }
+
+function toast(msg){
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 320); }, 2600);
+}
+
+const S = {
+  user: null, view: "chat", rail: "general",
+  roomId: null, marketId: null, dmUserId: null, adminTab: "users",
+  coarseUnlocked: false, settings: { coarse_password: "strelitzia", referrals_required: false },
+  badges: [], draft: { room: "", market: "", dm: "" }, currentPhrase: "",
+  settingsDraft: {}, profileTab: "overview"
+};
+
+const Log = {
+  async act(action, extra={}){
+    try { await sb.from("action_logs").insert({ action, actor: S.user?.id || null, actor_name: S.user?.username || "guest", actor_rank: S.user?.rank || "guest", path: S.view, target: extra.target || null, reason: extra.reason || null, room: S.view === "chat" ? S.roomId : S.view === "market" ? S.marketId : null, meta: extra }); } catch(e){}
+  }
+};
+
+async function pipelineSend({ table, base, text, file, burnSec }){
+  if (!S.user?.id) throw new Error("Sign in required");
+  const mid = "MID-" + uuid(); let aid = null;
+  if (file){
+    aid = "AID-" + uuid(); const path = `attachments/${aid}/${file.name}`;
+    const up = await sb.storage.from("attachments").upload(path, file, { upsert: true });
+    if (up.error) throw new Error("Upload failed: " + up.error.message);
+    await sb.from("attachments").insert({ id: aid, mid, owner_id: S.user.id, name: file.name, mime: file.type, size: file.size, provider: "supabase", storage_path: path });
+  }
+  const row = { id: mid, ...base, sender_id: S.user.id, body: text, aid, length: text.length, content_type: "text", created_at: nowISO(), ...(burnSec ? { burn_after_sec: burnSec } : {}) };
+  const { error } = await sb.from(table).insert(row);
+  if (error) throw new Error(error.message);
+  return row;
+}
+
+// THEME ACCENT LOGIC
+window.applyAccent = (hex) => {
+  document.documentElement.style.setProperty('--teal', hex);
+  localStorage.setItem('sh_accent', hex);
+  if ($("#customAccentPicker")) $("#customAccentPicker").value = hex;
+  $$('.accent-swatch').forEach(el => el.style.border = el.dataset.color === hex ? '2px solid #fff' : '2px solid transparent');
+};
+
+async function boot(){
+  const savedAccent = localStorage.getItem('sh_accent');
+  if (savedAccent) applyAccent(savedAccent);
+
+  const { data: settings } = await sb.from("settings").select("*");
+  if (settings) S.settings = { ...S.settings, ...Object.fromEntries(settings.map(x => [x.key, x.value])) };
+
+  const { data: badges } = await sb.from("decorations").select("*");
+  S.badges = badges || [];
+
+  $("#connBar").textContent = "Secure connection established.";
+  $("#connBar").style.color = "var(--teal)";
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    const { data: prof } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+    if (prof) return enterApp(prof);
+  }
+  renderAuthGate();
+}
+
+function renderAuthGate(){
+  $("#authForms").innerHTML = `
+    <div class="setting-group"><label>Email</label><input id="inEmail" type="email" placeholder="operator@node.net"></div>
+    <div class="setting-group"><label>Password</label><input id="inPass" type="password" placeholder="••••••••"></div>
+    <button style="width:100%;margin-bottom:12px;" onclick="doLogin()">Authenticate</button>
+    <button class="ghost" style="width:100%;" onclick="renderAuthGate(true)">Initialize New Identity</button>
+  `;
+}
+
+window.doLogin = async () => {
+  const { data, error } = await sb.auth.signInWithPassword({ email: $("#inEmail").value, password: $("#inPass").value });
+  if (error) return toast(error.message);
+  const { data: prof } = await sb.from("profiles").select("*").eq("id", data.user.id).maybeSingle();
+  if (prof) enterApp(prof);
+};
+
+window.renderAuthGate = (isReg) => {
+  if(!isReg) return renderAuthGate();
+  if(!S.currentPhrase) S.currentPhrase = generatePhrase();
+  $("#authForms").innerHTML = `
+    <div class="setting-group"><label>Email</label><input id="regEmail" type="email"></div>
+    <div class="setting-group"><label>Password</label><input id="regPass" type="password"></div>
+    <div class="setting-group"><label>Handle</label><input id="regHandle" placeholder="e.g. ghost"></div>
+    <div class="setting-group"><label>Recovery Phrase</label><div class="mono" style="background:#000;padding:12px;border:1px solid var(--line);border-radius:8px;color:var(--teal);font-size:12px;line-height:1.6;">${S.currentPhrase}</div></div>
+    <button style="width:100%;margin-bottom:12px;" onclick="doRegister()">Generate Identity</button>
+    <button class="ghost" style="width:100%;" onclick="renderAuthGate(false)">Back</button>
+  `;
+};
+
+window.doRegister = async () => {
+  const email = $("#regEmail").value, pass = $("#regPass").value, handle = $("#regHandle").value.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  if(!email || pass.length<8 || handle.length<3) return toast("Invalid format. Pass 8+, Handle 3+.");
+  const keyHash = await hashPhrase(S.currentPhrase);
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { handle, display_name: handle, key_phrase_hash: keyHash, timezone: tz() } } });
+  if (error) return toast(error.message);
+  if (!data.session) return toast("Check email to confirm.");
+  let prof = null; for (let i = 0; i < 15 && !prof; i++) { await new Promise(r => setTimeout(r, 300)); const { data: p2 } = await sb.from("profiles").select("*").eq("id", data.user.id).maybeSingle(); prof = p2; }
+  if (prof) enterApp(prof);
+};
+
+function enterApp(prof){
+  S.user = { ...prof };
+  $("#gate").classList.remove("active");
+  $("#shell").classList.remove("hidden");
+  subscribeRealtime();
+  S.rail = "general"; renderShell();
+}
+
+function subscribeRealtime(){
+  sb.channel("strelitzia-rt")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "room_messages" }, async p => { if (S.view === "chat" && p.new.room_id === S.roomId) await appendMsg("room", p.new); })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "market_messages" }, async p => { if (S.view === "market" && p.new.market_id === S.marketId) await appendMsg("market", p.new); })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "market_items" }, p => { if (S.view === "market" && p.new.market_id === S.marketId) renderShell(); })
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "dm_messages" }, async p => { if (S.view === "dm" && p.new.thread?.includes(S.user?.id)) await appendMsg("dm", p.new); })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, p => { if (p.new.id === S.user?.id) { S.user = p.new; renderShell(); } })
+    .on("postgres_changes", { event: "*", schema: "public", table: "decorations" }, async () => { const { data } = await sb.from("decorations").select("*"); S.badges = data || []; renderShell(); })
+    .subscribe(status => { const dot = document.querySelector("#channels-head .rt-dot"); if(dot) dot.className = "rt-dot" + (status === "SUBSCRIBED" ? " on" : ""); });
+}
+
+async function appendMsg(kind, m){
+  const box = kind === "room" ? document.querySelector("#msgBox") : kind === "market" ? document.querySelector("#mktMsgs") : document.querySelector("#dmBox");
+  if (!box || box.querySelector(`[data-mid="${m.id}"]`)) return;
+  if (kind === "dm" && m.sender_id !== S.user?.id && !m.read_at) await sb.from("dm_messages").update({ read_at: nowISO() }).eq("id", m.id);
+
+  const { data: u } = await sb.from("profiles").select("*").eq("id", m.sender_id).maybeSingle();
+  if (!u) return;
+  const { data: att } = m.aid ? await sb.from("attachments").select("*").eq("id", m.aid).maybeSingle() : { data: null };
+  const attById = att ? { [att.id]: att } : {};
+
+  const wasBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  box.insertAdjacentHTML("beforeend", renderMsg(m, u, attById));
+  if (wasBottom) box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- Mobile drawer (pure UI, no backend impact) ---------- */
+window.toggleChannels = (force) => {
+  const ch = $("#channels"), bk = $("#drawerBackdrop");
+  if (!ch || !bk) return;
+  const open = force !== undefined ? force : !ch.classList.contains("open");
+  ch.classList.toggle("open", open);
+  bk.classList.toggle("show", open);
+};
+
+/* UI RENDERING */
+const ICONS = {
+  general: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+  markets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 22V13h6v9"/></svg>`,
+  dms: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 3z"/></svg>`,
+  owned: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>`,
+  admin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>`,
+  profile: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>`,
+  faq: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`,
+  log: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>`,
+  logout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>`
+};
+
+function renderRail(){
+  const admin = S.user?.id && L[S.user.rank] >= L.staff;
+  let html = `<button class="rail-btn brand" data-rail="general" title="Home">${LOGO_FLOWER}</button><div class="rail-sep"></div>`;
+  [{ id:"general", icon: ICONS.general, title:"Comms" }, { id:"markets", icon: ICONS.markets, title:"Markets" }, { id:"dms", icon: ICONS.dms, title:"Direct Messages" }, { id:"owned", icon: ICONS.owned, title:"My Assets" }].forEach(it => {
+    html += `<button class="rail-btn ${S.rail===it.id?"active":""}" data-rail="${it.id}" title="${it.title}">${it.icon}</button>`;
+  });
+  if (admin) html += `<button class="rail-btn ${S.rail==='admin'?"active":""}" data-rail="admin" title="Admin">${ICONS.admin}</button>`;
+
+  html += `<div class="rail-spacer"></div>`;
+  html += `<button class="rail-btn ${S.rail==='changelog'?"active":""}" data-rail="changelog" title="Changelog">${ICONS.log}</button>`;
+  html += `<button class="rail-btn ${S.rail==='faq'?"active":""}" data-rail="faq" title="FAQ">${ICONS.faq}</button>`;
+  html += `<button class="rail-btn" data-action="profile" title="My Profile">${ICONS.profile}</button>`;
+  html += `<button class="rail-btn" data-action="settings" title="User Settings">${ICONS.settings}</button>`;
+  html += `<button class="rail-btn" data-action="logout" title="Log Out">${ICONS.logout}</button>`;
+  $("#rail").innerHTML = html;
+}
+
+/* Delegated rail handlers — attached once, survive innerHTML re-renders */
+function wireGlobalEvents(){
+  $("#rail").addEventListener("click", e => {
+    const railBtn = e.target.closest("[data-rail]");
+    const actBtn = e.target.closest("[data-action]");
+    if (railBtn) {
+      S.rail = railBtn.dataset.rail;
+      S.view = S.rail === "general" ? "chat" : S.rail === "markets" ? "markets" : S.rail === "dms" ? "dms" : S.rail === "owned" ? "owned" : S.rail === "admin" ? "admin" : S.rail;
+      toggleChannels(false);
+      renderShell();
+    } else if (actBtn) {
+      const a = actBtn.dataset.action;
+      if (a === "logout") { sb.auth.signOut(); location.reload(); }
+      if (a === "profile") openProfile(S.user);
+      if (a === "settings") openSettings();
+    }
+  });
+  $("#channels-body").addEventListener("click", e => {
+    const el = e.target.closest("[data-room],[data-market],[data-dm],[data-tab]");
+    if (!el) return;
+    if (el.dataset.room) { S.roomId = el.dataset.room; S.view = "chat"; toggleChannels(false); renderShell(); }
+    else if (el.dataset.market) { toggleChannels(false); openMarket(el.dataset.market); }
+    else if (el.dataset.dm) { S.dmUserId = el.dataset.dm; S.view = "dm"; toggleChannels(false); renderShell(); }
+    else if (el.dataset.tab) { S.adminTab = el.dataset.tab; renderShell(); }
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") toggleChannels(false); });
+}
+
+async function renderChannels(){
+  const head = $("#channels-head"), body = $("#channels-body");
+  let html = "";
+  head.innerHTML = `<span class="rt-dot on"></span> ${S.rail === 'general' ? 'Comms' : S.rail === 'markets' ? 'Markets' : S.rail === 'dms' ? 'Direct' : S.rail === 'owned' ? 'My Assets' : S.rail === 'admin' ? 'Admin' : 'Docs'}`;
+
+  if (S.rail === "general"){
+    const { data: rooms } = await sb.from("rooms").select("*").order("min_rank");
+    const groups = {}; (rooms||[]).forEach(r => { (groups[r.section || "General"] ||= []).push(r); });
+    Object.entries(groups).forEach(([sec, list]) => {
+      html += `<div class="chan-sec">${esc(sec)}</div>`;
+      list.forEach(r => {
+        html += `<div class="chan-item ${S.roomId===r.id&&S.view==="chat"?"active":""}" data-room="${r.id}"><span class="hash">#</span><span>${esc(r.name)}</span></div>`;
+      });
+    });
+  }
+  else if (S.rail === "markets"){
+    html += `<div class="chan-sec">Global Markets</div>
+      <div class="chan-item ${S.marketId===CFG.M_PURITY&&S.view==="market"?"active":""}" data-market="${CFG.M_PURITY}"><span class="hash">◈</span><span>Purity</span></div>
+      <div class="chan-item ${S.marketId===CFG.M_COARSE&&S.view==="market"?"active":""}" data-market="${CFG.M_COARSE}"><span class="hash">◈</span><span>Coarse</span><span class="tag lock">Restricted</span></div>
+      <div class="chan-item ${S.marketId===CFG.M_LIMITEDS&&S.view==="market"?"active":""}" data-market="${CFG.M_LIMITEDS}"><span class="hash">💎</span><span>Limited Badges</span></div>`;
+    const { data: all } = await sb.from("markets").select("*");
+    const um = (all || []).filter(m => m.id !== CFG.M_PURITY && m.id !== CFG.M_COARSE && m.id !== CFG.M_LIMITEDS);
+    if(um.length) {
+      html += `<div class="chan-sec">Private Nodes</div>`;
+      um.forEach(m => html += `<div class="chan-item ${S.marketId===m.id?"active":""}" data-market="${m.id}"><span class="hash">◇</span><span>${esc(m.name)}</span></div>`);
+    }
+  }
+  else if (S.rail === "dms"){
+    const { data: users } = await sb.from("profiles").select("*");
+    const others = (users || []).filter(u => u.id !== S.user?.id);
+    html += `<div class="chan-sec">Operators</div>`;
+    others.forEach(u => html += `<div class="chan-item ${S.dmUserId===u.id?"active":""}" data-dm="${u.id}"><div class="av" style="width:24px;height:24px;font-size:10px;">${initial(displayOf(u))}</div><span>${esc(displayOf(u))}</span></div>`);
+  }
+  else if (S.rail === "admin"){
+    [["users","Access Control"],["markets","Market Policy"],["badges","Forge Badges"],["settings","System Config"]].forEach(([id,label]) => {
+      html += `<div class="chan-item ${S.adminTab===id?"active":""}" data-tab="${id}"><span class="hash">›</span><span>${label}</span></div>`;
+    });
+  }
+  else if (S.rail === "changelog" || S.rail === "faq"){
+    html = `<div class="chan-sec">System</div>
+      <div class="chan-item active"><span class="hash">📄</span><span>${S.rail === 'changelog' ? 'Version History' : 'Knowledge Base'}</span></div>`;
+  }
+  body.innerHTML = html;
+}
+
+function renderBadges(u) {
+  let html = `<span class="badge-row">`;
+  if (OFFICIAL.has(u.rank)) html += `<span class="official-tag" title="Official">${LOGO_FLOWER}</span>`;
+
+  const tier = getPremiumTier(u);
+  if (tier) html += `<span title="Premium ${tier.tier}" style="font-size:14px;line-height:1;filter:drop-shadow(0 0 2px ${tier.color});">${tier.icon}</span>`;
+
+  if (u.equipped_deco) {
+    const badge = S.badges.find(b => b.id === u.equipped_deco);
+    if (badge && badge.owner_id === u.id) {
+      html += `<span class="forged-badge-sep"></span>`;
+      html += `<img src="${esc(badge.url)}" class="forged-badge" title="${esc(badge.name)}">`;
+    }
+  }
+  html += `</span>`;
+  return html;
+}
+
+async function renderMembers(){
+  const el = $("#members");
+  if (!el || getComputedStyle(el).display === "none") return; /* skip hidden-panel render work */
+  let html = `<div class="m-sec">Authorized</div>`;
+  const renderM = (u) => `
+    <div class="member" onclick="openProfile(${JSON.stringify(u).replace(/"/g, '&quot;')})">
+      <div class="av" style="border-color:${RANK_COLOR[u.rank]}44;">${initial(displayOf(u))}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-weight:700;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(displayOf(u))}</span>
+          ${renderBadges(u)}
+        </div>
+        ${u.custom_status ? `<div style="font-size:11px;color:var(--fg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(u.custom_status)}</div>` : `<div style="font-size:11px;color:var(--fg-dark)">${u.rank}</div>`}
+      </div>
+    </div>`;
+
+  if (S.user) html += renderM(S.user);
+  const { data: users } = await sb.from("profiles").select("*");
+  const others = (users || []).filter(u => u.id !== S.user?.id).slice(0, 40);
+  if (others.length) {
+    html += `<div class="m-sec" style="margin-top:16px;">Nodes (${users.length})</div>`;
+    others.forEach(u => html += renderM(u));
+  }
+  el.innerHTML = html;
+}
+
+function setStageHead(html){ $("#stage-head").innerHTML = html; }
+function setStageBody(html){ $("#stage-body").innerHTML = html; }
+
+async function renderShell(){
+  renderRail();
+  await renderChannels();
+  renderMembers();
+
+  if (S.view === "chat") await renderChat();
+  else if (S.view === "markets") await renderMarketsDirectory();
+  else if (S.view === "market") await renderMarket();
+  else if (S.view === "dm") await renderDm();
+  else if (S.view === "admin") await renderAdmin();
+  else if (S.view === "changelog") await renderChangelog();
+  else if (S.view === "faq") await renderFAQ();
+  else setStageBody(`<div class="empty">Select a node.</div>`);
+}
+
+/* DOCS: CHANGELOG */
+async function renderChangelog() {
+  setStageHead(`<h2>Changelog</h2><span class="topic">System Evolution Log</span>`);
+  const html = `
+    <div class="doc-view">
+      <h1>Version History</h1>
+      <p class="sub">Tracking the evolution of the Strelitzia network.</p>
+      <div class="timeline">
+
+        <div class="timeline-item">
+          <div class="timeline-version">v2.4.1-POLISH</div>
+          <div class="timeline-date">Current Build — UI/UX Pass</div>
+          <div class="timeline-content">
+            <ul>
+              <li><strong>Premium Visual Layer:</strong> Glassmorphism modals, animated ambient glows, refined hover states, gradient-bordered listing cards.</li>
+              <li><strong>Full Mobile Support:</strong> Bottom-anchored responsive rail, slide-in channel drawer with backdrop, adaptive grids and typography.</li>
+              <li><strong>Performance:</strong> Event delegation replaces per-render listener wiring; hidden panels skip rendering; reduced layout thrash.</li>
+              <li><strong>Zero backend changes:</strong> All Supabase auth, queries, and realtime subscriptions untouched.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-version">v2.4.1</div>
+          <div class="timeline-date">Accent Update</div>
+          <div class="timeline-content">
+            <ul>
+              <li><strong>Custom Theme Accent:</strong> Added color picker and preset swatches in settings.</li>
+              <li><strong>Dynamic Glows:</strong> All UI glows and highlights now dynamically shift based on your chosen accent color.</li>
+              <li><strong>FAQ Updates:</strong> Expanded Coarse market rules and updated badge descriptions.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-version">v2.4.0</div>
+          <div class="timeline-date">Economy Update</div>
+          <div class="timeline-content">
+            <ul>
+              <li><strong>Strelitzia Economy:</strong> Added Credits (1 Cr ≈ $1 USD).</li>
+              <li><strong>Limited Badges:</strong> Badges are now unique, ownable assets. Can be bought, sold, and gifted.</li>
+              <li><strong>Limiteds Market:</strong> Dedicated global market for trading badges.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+  setStageBody(html);
+}
+
+/* DOCS: FAQ */
+async function renderFAQ() {
+  setStageHead(`<h2>Knowledge Base</h2><span class="topic">Frequently Asked Questions</span>`);
+  const html = `
+    <div class="doc-view">
+      <h1>System FAQ</h1>
+      <p class="sub">Everything you need to know about operating on the Strelitzia network.</p>
+
+      <div class="faq-category"><svg class="faq-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg> Markets & Trading</div>
+
+      <details class="faq-item">
+        <summary>What is the difference between Purity and Coarse?</summary>
+        <div class="faq-answer"><strong>Purity</strong> is the open market. Anyone with a registered rank can view and post listings (WTS/WTB). <strong>Coarse</strong> is a restricted market for trades not allowed on Purity. Access requires whitelisting by an admin and a passcode which will be told to you. The passcode may change so ask an admin if locked out. Access is free just ask an admin to decide.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What do WTS and WTB mean?</summary>
+        <div class="faq-answer"><strong>WTS</strong> = Want To Sell. You are offering an item/service. <strong>WTB</strong> = Want To Buy. You are looking to purchase an item/service. Always specify your price and contact method in the description.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I post a listing?</summary>
+        <div class="faq-answer">Navigate to a market, click "+ New Listing" at the top right. Fill in the Title, Price, Description, and optionally an Image URL. Images must be direct links (e.g., from yourimageshare.com).</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Are trades escrowed?</summary>
+        <div class="faq-answer">No. Strelitzia is a peer-to-peer communications and listing board. We do not process payments. You trade at your own risk. Always verify the reputation and rank of the user you are dealing with.</div>
+      </details>
+
+      <div class="faq-category"><svg class="faq-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg> Economy & Limiteds</div>
+
+      <details class="faq-item">
+        <summary>What are Strelitzia Credits?</summary>
+        <div class="faq-answer">Credits are the native currency of the network. They are pegged to the US Dollar at a rate of <strong>1 Credit = 1 USD</strong>. You can use credits to purchase Limited Badges from the market.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I get Credits?</summary>
+        <div class="faq-answer">You can acquire Credits by selling your own Limited Badges on the market. Additionally, Staff and Admins can distribute Credits for events, trades, or loyalty.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are Limited Badges?</summary>
+        <div class="faq-answer">Limited Badges are unique, one-of-a-kind assets forged by Devs. Only <strong>one person</strong> can own a specific Limited Badge at a time. You can buy them on the market, sell them for Credits, or gift them directly to another user.</div>
+      </details>
+
+      <div class="faq-category"><svg class="faq-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg> Ranks & Badges</div>
+
+      <details class="faq-item">
+        <summary>How do I rank up?</summary>
+        <div class="faq-answer">Ranks are assigned by Admins. <code>Registered</code> is the default. <code>Member</code> is for trusted users. <code>Premium</code> is for paid/supported users. <code>Staff</code>, <code>Dev</code>, <code>Admin</code>, and <code>Owner</code> are reserved for the team. Do not ask for ranks; earn them through positive engagement.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are the evolving Premium badges?</summary>
+        <div class="faq-answer">If you achieve the Premium rank (or higher), you automatically receive a dynamic badge next to your name. As your account ages, the badge evolves:<br><br>
+        ✨ <strong>New</strong> (0-7 days)<br>
+        🌱 <strong>1 Week</strong> (8-30 days)<br>
+        🔥 <strong>1 Month</strong> (31-90 days)<br>
+        ⭐ <strong>3 Months</strong> (91-180 days)<br>
+        💎 <strong>6 Months</strong> (181-365 days)<br>
+        👑 <strong>1 Year+</strong> (365+ days)</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do I get custom badges?</summary>
+        <div class="faq-answer">Custom badges are forged by Devs and Admins . Once forged, they enter the global pool. You can equip any available badge from Settings → Badges. Rare badges are often given out for events, trades, or loyalty.</div>
+      </details>
+
+      <div class="faq-category"><svg class="faq-cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Security & Privacy</div>
+
+      <details class="faq-item">
+        <summary>What is the "Burn After Read" feature?</summary>
+        <div class="faq-answer">In Direct Messages, you can set a burn timer (60s, 1h, etc.). When the recipient reads the message, a timer starts. Once it expires, the message body is overwritten with a "burned" placeholder in the database. It is permanently destroyed.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is this platform anonymous?</summary>
+        <div class="faq-answer">We do not log IP addresses in the frontend application. However, standard Supabase infrastructure may log metadata.</div>
+      </details>
+
+    </div>
+  `;
+  setStageBody(html);
+}
+
+/* CHAT & LOGIC */
+async function renderChat(){
+  const { data: rooms } = await sb.from("rooms").select("*");
+  const room = rooms?.find(r => r.id === S.roomId) || rooms?.find(r => r.slug === "general") || rooms?.[0];
+  if(!room) return;
+  S.roomId = room.id;
+  setStageHead(`<h2># ${esc(room.name)}</h2><span class="topic">${esc(room.description||"Encrypted Channel")}</span>`);
+
+  const { data: msgs } = await sb.from("room_messages").select("*").eq("room_id", room.id).order("created_at", { ascending: true }).limit(200);
+  const { data: users } = await sb.from("profiles").select("*");
+  const { data: atts } = await sb.from("attachments").select("*");
+
+  const uById = Object.fromEntries((users||[]).map(u => [u.id, u]));
+  const attById = Object.fromEntries((atts||[]).map(a => [a.id, a]));
+
+  let html = `<div class="msgs" id="msgBox">`;
+  (msgs||[]).forEach(m => {
+    const u = uById[m.sender_id] || { username:"unknown", rank:"guest" };
+    html += renderMsg(m, u, attById);
+  });
+  html += `</div>` + renderComposer("room", room.id);
+  setStageBody(html);
+  const box = $("#msgBox"); if (box) box.scrollTop = box.scrollHeight;
+  wireComposer("room", room.id);
+}
+
+function renderMsg(m, u, attById = {}){
+  const att = m.aid ? attById[m.aid] : null;
+  const imgHtml = att ? `<img src="${SB_URL}/storage/v1/object/public/attachments/${att.storage_path}" class="msg-img" loading="lazy" onerror="this.style.display='none'">` : "";
+  const isOff = OFFICIAL.has(u.rank);
+  const profArg = JSON.stringify(u).replace(/"/g, '&quot;');
+
+  return `<div class="msg" data-mid="${m.id}">
+    <div class="av" onclick="openProfile(${profArg})" style="${isOff?`box-shadow:0 0 10px ${RANK_COLOR[u.rank]}`:""}">${initial(displayOf(u))}</div>
+    <div class="body">
+      <div class="head">
+        <span class="author ${isOff?"official":""}" onclick="openProfile(${profArg})">${esc(displayOf(u))}</span>
+        ${renderBadges(u)}
+        ${rankBadge(u.rank)}
+        <span class="time">${fmtTime(m.created_at)}</span>
+      </div>
+      <div class="text">${esc(m.body)}</div>
+      ${imgHtml}
+    </div>
+  </div>`;
+}
+
+function renderComposer(kind, target){
+  const burn = kind === "dm" ? `<select id="burnSel" style="width:100px;padding:4px;font-size:11px;"><option value="0">No Burn</option><option value="60">60s</option><option value="3600" selected>1h</option></select>` : "";
+  const draft = S.draft[kind] || "";
+  return `<div class="composer">
+    <div class="composer-wrap">
+      <textarea id="inMsg" rows="1" placeholder="Transmit message...">${esc(draft)}</textarea>
+      <div class="composer-tools">
+        <div class="left">
+          <input type="file" id="attachFile" style="display:none">
+          <button id="btnAttach" class="ghost sm">📎 Attach</button>
+          <span id="attachName" style="font-size:11px;color:var(--teal);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        </div>
+        ${burn}
+      </div>
+    </div>
+  </div>`;
+}
+
+function wireComposer(kind, target){
+  const inp = $("#inMsg"); if (!inp) return;
+  inp.oninput = () => { S.draft[kind] = inp.value; };
+  inp.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(kind, target); } };
+
+  const fileInp = $("#attachFile"), attachBtn = $("#btnAttach"), attachName = $("#attachName");
+  if (attachBtn) attachBtn.onclick = () => fileInp.click();
+  if (fileInp) fileInp.onchange = () => { attachName.textContent = fileInp.files.length ? fileInp.files[0].name : ""; };
+}
+
+async function doSend(kind, target){
+  const inp = $("#inMsg"); if (!inp) return;
+  const text = inp.value.trim(); const file = $("#attachFile")?.files?.[0];
+  if (!text && !file) return;
+  try {
+    const burn = +($("#burnSel")?.value || 0);
+    if (kind === "room") await pipelineSend({ table:"room_messages", base:{ room_id: target }, text, file });
+    else if (kind === "dm") await pipelineSend({ table:"dm_messages", base:{ thread: target }, text, file, burnSec: burn || null });
+    else if (kind === "market") await pipelineSend({ table:"market_messages", base:{ market_id: target }, text, file });
+    S.draft[kind] = ""; inp.value = ""; const an = $("#attachName"); if (an) an.textContent = "";
+  } catch(e){ toast(e.message); }
+}
+
+async function openMarket(id){
+  if (id === CFG.M_COARSE && !S.coarseUnlocked){
+    const { data: wl } = await sb.from("coarse_whitelist").select("user_id").eq("user_id", S.user.id).maybeSingle();
+    if (!wl && L[S.user.rank] < L.staff) return toast("Access Denied: Not Whitelisted.");
+    const pw = prompt("Enter Coarse Passphrase:");
+    if (pw !== (S.settings.coarse_password || "strelitzia")) return toast("Authentication Failed.");
+    S.coarseUnlocked = true;
+  }
+  S.marketId = id; S.view = "market"; S.rail = "markets"; renderShell();
+}
+
+async function renderMarketsDirectory(){
+  setStageHead(`<h2>Global Markets</h2><span class="topic">Select a trading node</span>`);
+  const { data: all } = await sb.from("markets").select("*");
+  let html = `<div class="market-view"><div class="listing-grid">`;
+  (all||[]).forEach(m => {
+    const isLimited = m.id === CFG.M_LIMITEDS;
+    html += `<div class="listing-card" onclick="openMarket('${m.id}')" style="cursor:pointer">
+      <div style="height:120px;background:radial-gradient(circle at 50% 40%, var(--acc-08), var(--bg-elevated));display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line);font-size:40px;">${isLimited?'💎':m.id===CFG.M_COARSE?'🕶️':LOGO_FLOWER}</div>
+      <div class="listing-info">
+        <div class="listing-title">${esc(m.name)}</div>
+        <div class="listing-desc">${esc(m.description||"Secure P2P Exchange")}</div>
+        <div style="margin-top:16px;font-size:11px;color:var(--teal);font-weight:800;letter-spacing:1px;">ENTER NODE →</div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  setStageBody(html);
+}
+
+async function renderMarket(){
+  const { data: m } = await sb.from("markets").select("*").eq("id", S.marketId).maybeSingle();
+  const isLimiteds = m.id === CFG.M_LIMITEDS;
+  const isGlobal = (m.id === CFG.M_PURITY || m.id === CFG.M_COARSE || isLimiteds);
+  const hasChat = !isGlobal && m.room_mode === "everyone";
+  const canPost = !isGlobal || L[S.user?.rank || "guest"] >= L.staff;
+
+  setStageHead(`<h2>${esc(m.name)}</h2><span class="topic">Node ID: ${esc(m.id)}</span>`);
+  let html = `<div class="market-view">
+    <div class="market-header">
+      <div><h1>${esc(m.name)} ${isGlobal?'<span style="background:var(--acc-08);color:var(--teal);border:1px solid color-mix(in srgb, var(--teal) 30%, transparent);padding:3px 10px;border-radius:20px;font-size:11px;vertical-align:middle;letter-spacing:1px;">GLOBAL</span>':''}</h1><div class="desc">${esc(m.description||"")}</div></div>
+      ${canPost && !isLimiteds ? `<button onclick="createListingPrompt('${m.id}')">+ New Listing</button>` : ""}
+    </div>
+    <div class="listing-grid" id="listingsGrid">`;
+
+  if (isLimiteds) {
+    const forSale = S.badges.filter(b => b.for_sale);
+    if (!forSale.length) html += `<div class="empty" style="grid-column:1/-1;font-family:var(--font-mono);">NO BADGES LISTED FOR SALE.</div>`;
+    else forSale.forEach(b => {
+      html += `<div class="listing-card" style="padding:24px;text-align:center;">
+        <img src="${esc(b.url)}" loading="lazy" style="width:80px;height:80px;object-fit:contain;margin:0 auto 16px;filter:drop-shadow(0 0 10px var(--acc-40));">
+        <div class="listing-title">${esc(b.name)}</div>
+        <div class="b-rarity rarity-${esc(b.rarity||'common')}" style="font-size:10px;font-weight:800;text-transform:uppercase;margin-bottom:12px;">${esc(b.rarity||'common')}</div>
+        <div class="listing-price" style="justify-content:center;">💰 ${b.price.toLocaleString()} Cr</div>
+        <button onclick="buyBadge('${b.id}')" style="width:100%;margin-top:10px;">Purchase</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+    setStageBody(html);
+    return;
+  }
+
+  const { data: items } = await sb.from("market_items").select("*").eq("market_id", m.id).order("created_at", { ascending: false });
+  const { data: users } = await sb.from("profiles").select("*");
+  const uById = Object.fromEntries((users||[]).map(u => [u.id, u]));
+
+  if (!items?.length) html += `<div class="empty" style="grid-column:1/-1;font-family:var(--font-mono);">NO ACTIVE LISTINGS FOUND.</div>`;
+  else items.forEach(it => {
+    const seller = uById[it.seller_id] || {username:"unknown"};
+    const typeClass = it.item_type === 'WTB' ? 'wtb' : 'wts';
+    html += `<div class="listing-card">
+      <div class="listing-type ${typeClass}">${esc(it.item_type || 'WTS')}</div>
+      ${it.image_url ? `<img src="${esc(it.image_url)}" class="listing-img" loading="lazy">` : `<div class="listing-img" style="display:flex;align-items:center;justify-content:center;color:var(--fg-dark);font-size:40px;">◈</div>`}
+      <div class="listing-info">
+        <div class="listing-title">${esc(it.title)}</div>
+        <div class="listing-price">${esc(it.price||"N/A")}</div>
+        <div class="listing-desc">${esc(it.description)}</div>
+        <div class="listing-seller">
+          <div class="av" style="width:16px;height:16px;font-size:8px;">${initial(displayOf(seller))}</div>
+          ${esc(displayOf(seller))}
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  if (hasChat) {
+    html += `<div class="panel" style="margin-top:40px;background:transparent;border:none;padding:0;"><h3 style="color:var(--fg-muted);font-size:12px;margin-bottom:12px;"># NODE CHAT</h3>
+      <div id="mktMsgs" style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:10px 0;border-top:1px solid var(--line);"></div>`;
+    if (S.user?.id) html += `<div class="composer" style="padding:10px 0 0;border:none;"><div class="composer-wrap"><textarea id="inMsg" placeholder="Message node…"></textarea></div><button class="send-btn" id="btnSend" style="margin-top:8px;">Send</button></div>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+  setStageBody(html);
+
+  if (hasChat) {
+    const { data: msgs } = await sb.from("market_messages").select("*").eq("market_id", m.id).order("created_at", { ascending: true }).limit(50);
+    const { data: atts } = await sb.from("attachments").select("*");
+    const attById = Object.fromEntries((atts||[]).map(a => [a.id, a]));
+
+    const box = $("#mktMsgs");
+    if (box && msgs) {
+      msgs.forEach(x => { const u = uById[x.sender_id] || {username:"unknown"}; box.insertAdjacentHTML("beforeend", renderMsg(x, u, attById)); });
+      box.scrollTop = box.scrollHeight;
+    }
+    if ($("#btnSend")) { $("#btnSend").onclick = async () => { const t = $("#inMsg").value.trim(); if (t) await pipelineSend({ table:"market_messages", base:{ market_id: m.id }, text: t }); $("#inMsg").value=""; }; }
+  }
+}
+
+window.buyBadge = async (id) => {
+  const b = S.badges.find(x => x.id === id);
+  if (!b || !b.for_sale) return;
+  if (b.owner_id === S.user.id) return toast("You already own this.");
+  if (S.user.credits < b.price) return toast("Insufficient Credits.");
+
+  if (!confirm(`Buy ${b.name} for ${b.price} Credits?`)) return;
+
+  await sb.from("profiles").update({ credits: S.user.credits - b.price }).eq("id", S.user.id);
+  S.user.credits -= b.price;
+
+  if (b.owner_id) {
+    const { data: seller } = await sb.from("profiles").select("credits").eq("id", b.owner_id).maybeSingle();
+    if (seller) await sb.from("profiles").update({ credits: (seller.credits || 0) + b.price }).eq("id", b.owner_id);
+  }
+
+  await sb.from("decorations").update({ owner_id: S.user.id, for_sale: false, price: 0 }).eq("id", id);
+
+  toast("Badge acquired!");
+  renderShell();
+};
+
+async function createListingPrompt(marketId){
+  $("#modalContent").innerHTML = `
+    <div class="modal-content" style="padding:24px;">
+      <h2 style="margin-bottom:20px;">Create Listing</h2>
+      <div class="setting-group"><label>Item Title</label><input id="lsTitle" placeholder="e.g. Premium Account"></div>
+      <div style="display:flex;gap:12px;">
+        <div class="setting-group" style="flex:1;"><label>Type</label><select id="lsType"><option value="WTS">WTS (Selling)</option><option value="WTB">WTB (Buying)</option></select></div>
+        <div class="setting-group" style="flex:1;"><label>Price</label><input id="lsPrice" placeholder="$50 / 500c"></div>
+      </div>
+      <div class="setting-group"><label>Description</label><textarea id="lsDesc" style="height:80px;"></textarea></div>
+      <div class="setting-group"><label>Image URL (Optional)</label><input id="lsImg" placeholder="https://i.yourimageshare.com/..."></div>
+      <button style="width:100%;margin-top:10px;" onclick="submitListing('${marketId}')">Publish Listing</button>
+      <button class="ghost" style="width:100%;margin-top:8px;" onclick="document.getElementById('modalOverlay').classList.remove('active')">Cancel</button>
+    </div>`;
+  $("#modalOverlay").classList.add("active");
+}
+
+window.submitListing = async (marketId) => {
+  const title = $("#lsTitle").value, type = $("#lsType").value, price = $("#lsPrice").value, desc = $("#lsDesc").value, img = $("#lsImg").value;
+  if(!title || !price) return toast("Title and Price required.");
+  await sb.from("market_items").insert({ id: "itm-"+uuid(), market_id: marketId, seller_id: S.user.id, title, item_type: type, price, description: desc, image_url: img || null });
+  $("#modalOverlay").classList.remove("active");
+  renderShell();
+};
+
+async function renderDm(){
+  const { data: other } = await sb.from("profiles").select("*").eq("id", S.dmUserId).maybeSingle();
+  const key = [S.user.id, other.id].sort().join("|");
+  const { data: msgs } = await sb.from("dm_messages").select("*").eq("thread", key).order("created_at", { ascending: true }).limit(100);
+  const { data: atts } = await sb.from("attachments").select("*");
+  const attById = Object.fromEntries((atts||[]).map(a => [a.id, a]));
+
+  setStageHead(`<h2>@${esc(other.username)}</h2><span class="topic">End-to-End Burn Enabled</span>`);
+  let html = `<div class="msgs" id="dmBox">`;
+  (msgs||[]).forEach(m => html += renderMsg(m, m.sender_id === S.user.id ? S.user : other, attById));
+  html += `</div>` + renderComposer("dm", key);
+  setStageBody(html);
+  const box = $("#dmBox"); if (box) box.scrollTop = box.scrollHeight;
+  wireComposer("dm", key);
+}
+
+/* PROFILE VIEW & COLLECTION */
+window.openProfile = (u) => {
+  if (!u) return;
+  S.profileTab = 'overview';
+  renderProfileModal(u);
+};
+
+function renderProfileModal(u) {
+  const bannerStyle = u.banner_url ? `background:url(${esc(u.banner_url)}) center/cover;` : `background:linear-gradient(135deg,var(--bg-elevated),var(--bg-core));`;
+  const tier = getPremiumTier(u);
+  const tierBadge = tier ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:12px;background:${tier.color}15;color:${tier.color};border:1px solid ${tier.color}44;font-weight:800;text-transform:uppercase;">${tier.icon} ${tier.tier} Premium</span>` : '';
+
+  let content = '';
+  if (S.profileTab === 'overview') {
+    content = `
+      <div style="background:color-mix(in srgb, var(--bg-core) 70%, transparent);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:11px;text-transform:uppercase;color:var(--fg-muted);font-weight:800;margin-bottom:8px;">About Me</div>
+        <div style="font-size:14px;color:var(--fg);line-height:1.5;">${esc(u.bio || "No bio provided.")}</div>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <div style="flex:1;background:color-mix(in srgb, var(--bg-core) 70%, transparent);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:10px;color:var(--fg-muted);font-weight:800;text-transform:uppercase;">Rank</div>
+          <div style="margin-top:6px;">${rankBadge(u.rank)}</div>
+        </div>
+        <div style="flex:1;background:color-mix(in srgb, var(--bg-core) 70%, transparent);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:10px;color:var(--fg-muted);font-weight:800;text-transform:uppercase;">Joined</div>
+          <div style="margin-top:6px;font-family:var(--font-mono);font-size:12px;">${u.created_at ? new Date(u.created_at).toLocaleDateString() : "Unknown"}</div>
+        </div>
+      </div>
+    `;
+  } else if (S.profileTab === 'collection') {
+    const owned = S.badges.filter(b => b.owner_id === u.id);
+    content = `
+      <div class="collection-grid">
+        ${owned.map(d => {
+          const isEq = u.equipped_deco === d.id;
+          return `<div class="badge-card ${isEq?'equipped':''}">
+            <img src="${esc(d.url)}" loading="lazy">
+            <div class="b-name">${esc(d.name)}</div>
+            <div class="b-rarity rarity-${esc(d.rarity||'common')}">${esc(d.rarity||'common')}</div>
+            ${S.user?.id === u.id ? `
+              <div style="display:flex;gap:4px;margin-top:8px;width:100%;">
+                ${!isEq?`<button class="ghost sm" style="flex:1;padding:4px;" onclick="equipBadge('${d.id}')">Equip</button>`:''}
+                <button class="ghost sm" style="flex:1;padding:4px;" onclick="giftBadge('${d.id}')">Gift</button>
+                <button class="ghost sm" style="flex:1;padding:4px;" onclick="sellBadge('${d.id}')">Sell</button>
+              </div>
+            ` : ''}
+          </div>`;
+        }).join("")}
+      </div>
+      ${!owned.length ? '<div class="empty">No badges owned.</div>' : ''}
+    `;
+  }
+
+  const profArg = JSON.stringify(u).replace(/"/g, '&quot;');
+  $("#modalContent").innerHTML = `
+    <div class="modal-banner" style="${bannerStyle}"></div>
+    <div class="prof-av-wrap">
+      <div class="prof-av" style="border-color:${RANK_COLOR[u.rank]};box-shadow:0 0 20px ${RANK_COLOR[u.rank]}33;">${initial(displayOf(u))}</div>
+    </div>
+    <div class="prof-header">
+      <h2>${esc(displayOf(u))} ${renderBadges(u)}</h2>
+      <p>@${esc(u.username)} · ID: ${esc(u.public_id||"UNKNOWN")}</p>
+      <div style="margin-top:8px;display:flex;gap:8px;">${tierBadge}</div>
+    </div>
+    <div class="profile-tabs">
+      <div class="ptab ${S.profileTab==='overview'?'active':''}" onclick="S.profileTab='overview'; renderProfileModal(${profArg})">Overview</div>
+      <div class="ptab ${S.profileTab==='collection'?'active':''}" onclick="S.profileTab='collection'; renderProfileModal(${profArg})">Collection</div>
+    </div>
+    <div class="profile-content">
+      ${content}
+      ${S.user?.id === u.id ? `<button style="width:100%;margin-top:20px;" onclick="openSettings()">Edit Profile & Settings</button>` : ""}
+      <button class="ghost" style="width:100%;margin-top:8px;" onclick="document.getElementById('modalOverlay').classList.remove('active')">Close</button>
+    </div>
+  `;
+  $("#modalOverlay").classList.add("active");
+}
+
+window.giftBadge = async (id) => {
+  const handle = prompt("Enter the @handle of the user to gift this to:");
+  if (!handle) return;
+  const { data: target } = await sb.from("profiles").select("id").eq("username", handle.replace('@','')).maybeSingle();
+  if (!target) return toast("User not found.");
+  if (!confirm(`Gift this badge to @${handle}?`)) return;
+
+  await sb.from("decorations").update({ owner_id: target.id, for_sale: false, price: 0 }).eq("id", id);
+  if (S.user.equipped_deco === id) await sb.from("profiles").update({ equipped_deco: null }).eq("id", S.user.id);
+
+  toast("Badge gifted!"); openProfile(S.user);
+};
+
+window.sellBadge = async (id) => {
+  const priceStr = prompt("Enter price in Credits (1 Cr ≈ $1):");
+  if (!priceStr) return;
+  const price = parseInt(priceStr, 10);
+  if (isNaN(price) || price < 0) return toast("Invalid price.");
+
+  await sb.from("decorations").update({ for_sale: true, price }).eq("id", id);
+  toast("Badge listed on Limiteds Market!"); openProfile(S.user);
+};
+
+window.equipBadge = async (id) => {
+  await sb.from("profiles").update({ equipped_deco: id }).eq("id", S.user.id);
+  S.user.equipped_deco = id;
+  toast("Badge equipped!");
+  renderShell();
+  if ($("#settingsPane")) switchSettingsTab('collection', $$('.settings-nav-btn')[2]);
+  else if ($("#modalContent") && S.profileTab === 'collection') renderProfileModal(S.user);
+};
+
+/* BIG USER SETTINGS */
+window.openSettings = () => {
+  $("#modalContent").innerHTML = `
+    <div class="settings-modal">
+      <div class="settings-sidebar">
+        <div class="settings-sidebar-title">User Settings</div>
+        <div class="settings-nav-btn active" onclick="switchSettingsTab('account', this)">My Account</div>
+        <div class="settings-nav-btn" onclick="switchSettingsTab('profile', this)">Profile</div>
+        <div class="settings-nav-btn" onclick="switchSettingsTab('collection', this)">Collection</div>
+        <div class="settings-nav-btn" onclick="switchSettingsTab('appearance', this)">Appearance</div>
+        <div style="flex:1"></div>
+        <div class="settings-nav-btn danger" onclick="document.getElementById('modalOverlay').classList.remove('active')">Close</div>
+      </div>
+      <div class="settings-main">
+        <div class="settings-header">
+          <h2 id="settingsTitle">My Account</h2>
+        </div>
+        <div class="settings-content-scroll" id="settingsPane"></div>
+      </div>
+    </div>
+  `;
+  $("#modalOverlay").classList.add("active");
+  switchSettingsTab('account', $$('.settings-nav-btn')[0]);
+};
+
+window.switchSettingsTab = (tab, el) => {
+  if ($("#setDisplay")) {
+    S.settingsDraft.display_name = $("#setDisplay").value;
+    S.settingsDraft.custom_status = $("#setStatus").value;
+    S.settingsDraft.bio = $("#setBio").value;
+    S.settingsDraft.banner_url = $("#setBanner").value;
+  }
+
+  if(el) { $$(".settings-nav-btn").forEach(t => t.classList.remove("active")); el.classList.add("active"); }
+  const pane = $("#settingsPane");
+  const title = $("#settingsTitle");
+  const val = (key) => S.settingsDraft[key] !== undefined ? S.settingsDraft[key] : (S.user[key] || "");
+
+  if (tab === 'account') {
+    title.textContent = "My Account";
+    pane.innerHTML = `
+      <div style="background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--teal) 20%, transparent);border-radius:14px;padding:24px;margin-bottom:24px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 0%, var(--acc-08), transparent 65%);pointer-events:none;"></div>
+        <div style="font-size:12px;text-transform:uppercase;color:var(--fg-muted);font-weight:800;margin-bottom:8px;">Strelitzia Credits</div>
+        <div style="font-size:36px;font-weight:800;color:var(--teal);font-family:var(--font-mono);text-shadow:0 0 20px var(--acc-40);">💰 ${(S.user.credits||0).toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--fg-dark);margin-top:4px;">≈ $${(S.user.credits||0).toLocaleString()} USD</div>
+      </div>
+      <div class="setting-group"><label>Email Address</label><input value="${esc(S.user.email||"")}" readonly></div>
+      <div class="setting-group"><label>Public ID</label><input value="${esc(S.user.public_id||"")}" readonly></div>
+      <button class="danger" onclick="if(confirm('Are you sure you want to log out?')) { sb.auth.signOut(); location.reload(); }">Sign Out</button>
+    `;
+  } else if (tab === 'profile') {
+    title.textContent = "Profile Settings";
+    pane.innerHTML = `
+      <div class="setting-group"><label>Display Name</label><input id="setDisplay" value="${esc(val('display_name'))}"></div>
+      <div class="setting-group"><label>Custom Status</label><input id="setStatus" placeholder="What are you doing?" value="${esc(val('custom_status'))}"></div>
+      <div class="setting-group"><label>Bio</label><textarea id="setBio" style="height:100px;">${esc(val('bio'))}</textarea></div>
+      <div class="setting-group">
+        <label>Banner URL</label>
+        <div class="setting-desc">We recommend using <a href="https://yourimageshare.com" target="_blank" rel="noopener" style="color:var(--teal)">yourimageshare.com</a> for hosting images.</div>
+        <input id="setBanner" placeholder="https://i.yourimageshare.com/..." value="${esc(val('banner_url'))}">
+      </div>
+      <button onclick="saveProfile()">Save Changes</button>
+    `;
+  } else if (tab === 'collection') {
+    title.textContent = "My Collection";
+    const owned = S.badges.filter(b => b.owner_id === S.user.id);
+    pane.innerHTML = `
+      <div class="setting-desc" style="margin-bottom:16px;">Equip a forged badge to display it next to your name across the network. Unique badges can be gifted or sold on the Limiteds Market.</div>
+      <div class="collection-grid">
+        ${owned.map(d => {
+          const isEq = S.user.equipped_deco === d.id;
+          return `<div class="badge-card ${isEq?'equipped':''}">
+            <img src="${esc(d.url)}" loading="lazy">
+            <div class="b-name">${esc(d.name)}</div>
+            <div class="b-rarity rarity-${esc(d.rarity||'common')}">${esc(d.rarity||'common')}</div>
+            <div style="display:flex;gap:4px;margin-top:8px;width:100%;">
+              ${!isEq?`<button class="ghost sm" style="flex:1;padding:4px;" onclick="equipBadge('${d.id}')">Equip</button>`:''}
+              <button class="ghost sm" style="flex:1;padding:4px;" onclick="giftBadge('${d.id}')">Gift</button>
+              <button class="ghost sm" style="flex:1;padding:4px;" onclick="sellBadge('${d.id}')">Sell</button>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+      ${!owned.length ? '<div class="empty">You do not own any badges.</div>' : ''}
+    `;
+  } else if (tab === 'appearance') {
+    title.textContent = "Appearance";
+    const currentAccent = localStorage.getItem('sh_accent') || '#00ffcc';
+    const presets = [
+      { name: 'Teal', hex: '#00ffcc' },
+      { name: 'Purple', hex: '#b388ff' },
+      { name: 'Amber', hex: '#ffb800' },
+      { name: 'Red', hex: '#ff3b5c' },
+      { name: 'Blue', hex: '#3b82f6' },
+      { name: 'Green', hex: '#00e676' }
+    ];
+
+    pane.innerHTML = `
+      <div class="setting-group">
+        <label>Theme Accent</label>
+        <div class="setting-desc">Customize the primary highlight color of the UI. All glows update instantly.</div>
+        <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+          ${presets.map(p => `
+            <div class="accent-swatch" data-color="${p.hex}" onclick="applyAccent('${p.hex}')" style="width:40px;height:40px;border-radius:50%;background:${p.hex};cursor:pointer;border:2px solid ${currentAccent===p.hex?'#fff':'transparent'};box-shadow:0 0 12px ${p.hex}40;" title="${p.name}"></div>
+          `).join("")}
+        </div>
+        <div style="margin-top:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <label style="margin:0;text-transform:none;font-size:14px;">Custom Color:</label>
+          <input type="color" id="customAccentPicker" value="${currentAccent}" onchange="applyAccent(this.value)" style="width:60px;height:40px;padding:0;border:none;cursor:pointer;background:none;">
+          <button class="ghost sm" onclick="applyAccent('#00ffcc'); switchSettingsTab('appearance', $$('.settings-nav-btn')[3])">Reset Default</button>
+        </div>
+      </div>
+      <div class="setting-group" style="margin-top:40px;"><label>Message Display</label><select><option>Cozy</option><option>Compact</option></select></div>
+    `;
+  }
+};
+
+window.saveProfile = async () => {
+  const updates = {
+    display_name: $("#setDisplay").value,
+    custom_status: $("#setStatus").value,
+    bio: $("#setBio").value,
+    banner_url: $("#setBanner").value
+  };
+  await sb.from("profiles").update(updates).eq("id", S.user.id);
+  Object.assign(S.user, updates);
+  S.settingsDraft = {};
+  toast("Profile Updated");
+  $("#modalOverlay").classList.remove("active");
+  renderShell();
+};
+
+/* ADMIN PANEL */
+async function renderAdmin(){
+  setStageHead(`<h2>Command Center</h2><span class="topic">Restricted Access</span>`);
+  let html = `<div class="market-view">`;
+
+  if (S.adminTab === "users"){
+    const { data: users } = await sb.from("profiles").select("*");
+    html += `<div class="panel" style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:24px;overflow-x:auto;">
+      <h3 style="font-size:14px;margin-bottom:20px;color:var(--teal);">Operator Access Control</h3>
+      <table style="width:100%;border-collapse:collapse;min-width:640px;">
+        <tr style="text-align:left;font-size:11px;color:var(--fg-dark);border-bottom:1px solid var(--line);"><th style="padding:10px;">User</th><th style="padding:10px;">Credits</th><th style="padding:10px;">Rank</th><th style="padding:10px;">Actions</th></tr>
+        ${(users||[]).map(u => `<tr style="border-bottom:1px solid var(--line);font-size:13px;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.02)'" onmouseout="this.style.background=''">
+          <td style="padding:10px;font-weight:700;">${esc(displayOf(u))}</td>
+          <td style="padding:10px;font-family:var(--font-mono);color:var(--teal);">💰 ${(u.credits||0).toLocaleString()}</td>
+          <td style="padding:10px;"><select onchange="setRank('${u.id}', this.value)" style="padding:4px;font-size:12px;width:120px;">${RANKS.map(r=>`<option ${u.rank===r?"selected":""}>${r}</option>`).join("")}</select></td>
+          <td style="padding:10px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="ghost sm" onclick="giveCredits('${u.id}', '${esc(displayOf(u))}')">Give Credits</button>
+            ${u.id !== S.user.id ? `<button class="danger sm" onclick="banUser('${u.id}')">Ban</button>` : ""}
+          </td>
+        </tr>`).join("")}
+      </table>
+    </div>`;
+  }
+  else if (S.adminTab === "markets"){
+    const { data: markets } = await sb.from("markets").select("*");
+    html += `<div class="panel" style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:24px;">
+      <h3 style="font-size:14px;margin-bottom:20px;color:var(--teal);">Market Policy</h3>
+      <div style="display:grid;gap:12px;">
+        ${(markets||[]).map(m => `
+          <div style="background:var(--bg-core);padding:16px;border-radius:10px;border:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--line-bright)'" onmouseout="this.style.borderColor='var(--line)'">
+            <div style="flex:1;min-width:150px;">
+              <div style="font-weight:800;font-size:15px;">${esc(m.name)}</div>
+              <div style="font-size:11px;color:var(--fg-muted);">ID: ${esc(m.id)}</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="ghost sm" onclick="editMarket('${m.id}')">Edit</button>
+              ${m.id !== CFG.M_PURITY && m.id !== CFG.M_COARSE && m.id !== CFG.M_LIMITEDS ? `<button class="danger sm" onclick="deleteMarket('${m.id}')">Delete</button>` : ""}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>`;
+  }
+  else if (S.adminTab === "badges"){
+    if (L[S.user.rank] < L.dev) html += `<div class="empty">Clearance Level: DEV required.</div>`;
+    else {
+      html += `<div class="panel" style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:24px;">
+        <h3 style="font-size:14px;margin-bottom:20px;color:var(--teal);">Forge Limited Badge</h3>
+        <div style="display:grid;gap:12px;max-width:500px;">
+          <input id="badgeName" placeholder="Badge Name (e.g. Genesis)">
+          <input id="badgeUrl" placeholder="Image URL (yourimageshare.com)">
+          <select id="badgeRarity"><option value="common">Common</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option></select>
+          <button onclick="addBadge()">Mint Badge to Yourself</button>
+        </div>
+      </div>
+      <div class="collection-grid">`;
+      S.badges.forEach(d => {
+        html += `<div class="badge-card">
+          <img src="${esc(d.url)}" loading="lazy">
+          <div class="b-name">${esc(d.name)}</div>
+          <div class="b-rarity rarity-${esc(d.rarity||'common')}">${esc(d.rarity||'common')}</div>
+          <div style="font-size:10px;color:var(--fg-muted);margin-top:4px;">Owner: ${esc(d.owner_id ? "User" : "System")}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
+  else if (S.adminTab === "settings"){
+    html += `<div class="panel" style="background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;padding:24px;">
+      <h3 style="font-size:14px;margin-bottom:20px;color:var(--teal);">System Configuration</h3>
+      <div class="setting-group"><label>Coarse Passphrase</label><input value="${esc(S.settings.coarse_password||"")}" onchange="setSetting('coarse_password', this.value)"></div>
+      <div class="setting-group"><label>Require Referral on Register</label><select onchange="setSetting('referrals_required', this.value === 'true')"><option value="false" ${!S.settings.referrals_required?'selected':''}>No</option><option value="true" ${S.settings.referrals_required?'selected':''}>Yes</option></select></div>
+    </div>`;
+  }
+  html += `</div>`;
+  setStageBody(html);
+}
+
+window.giveCredits = async (id, name) => {
+  const amountStr = prompt(`How many Credits to give to ${name}? (1 Cr ≈ $1)`);
+  if (!amountStr) return;
+  const amount = parseInt(amountStr, 10);
+  if (isNaN(amount) || amount <= 0) return toast("Invalid amount.");
+
+  const { data: u } = await sb.from("profiles").select("credits").eq("id", id).maybeSingle();
+  if (!u) return;
+  await sb.from("profiles").update({ credits: (u.credits || 0) + amount }).eq("id", id);
+  toast(`Gave ${amount} Credits to ${name}.`);
+  renderShell();
+};
+
+window.addBadge = async () => {
+  const name = $("#badgeName").value.trim(), url = $("#badgeUrl").value.trim(), rarity = $("#badgeRarity").value;
+  if (!name || !url) return toast("Required fields missing.");
+  await sb.from("decorations").insert({ id: "BADGE-" + Math.floor(1000 + Math.random()*9000), name, url, rarity, created_by: S.user.id, owner_id: S.user.id });
+  const { data } = await sb.from("decorations").select("*");
+  S.badges = data || [];
+  toast("Badge forged and added to your collection."); renderShell();
+};
+
+window.deleteBadge = async (id) => {
+  if(!confirm("Delete this badge permanently?")) return;
+  await sb.from("decorations").delete().eq("id", id);
+  S.badges = S.badges.filter(b => b.id !== id);
+  toast("Badge deleted."); renderShell();
+};
+
+window.editMarket = async (id) => {
+  const { data: m } = await sb.from("markets").select("*").eq("id", id).maybeSingle();
+  const desc = prompt("Market Description:", m.description || "");
+  if(desc !== null) {
+    await sb.from("markets").update({ description: desc }).eq("id", id);
+    toast("Market updated."); renderShell();
+  }
+};
+
+window.deleteMarket = async (id) => {
+  if(!confirm("Delete this market and all its listings?")) return;
+  await sb.from("markets").delete().eq("id", id);
+  toast("Market deleted."); renderShell();
+};
+
+window.banUser = async (id) => {
+  if(!confirm("Issue IP Ban to this user?")) return;
+  await sb.from("bans").insert({ id: "ban-"+uuid(), target_user: id, reason: "Admin Action", active: true, created_by: S.user.id });
+  toast("User banned.");
+};
+
+window.setRank = async (id, rank) => {
+  await sb.from("profiles").update({ rank }).eq("id", id);
+  toast("Clearance updated.");
+};
+
+window.setSetting = async (key, val) => {
+  await sb.from("settings").update({ value: val }).eq("key", key);
+  S.settings[key] = val;
+  toast("Setting saved.");
+};
+
+wireGlobalEvents();
+boot();
+</script>
+</body>
+</html>
